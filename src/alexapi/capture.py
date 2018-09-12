@@ -3,17 +3,13 @@ import time
 import threading
 import os
 import queue
-
 import webrtcvad
-
 from .exceptions import ConfigurationException
 
 os.environ["PA_ALSA_PLUGHW"] = "1"
 import pyaudio # pylint: disable=wrong-import-position,wrong-import-order
 
-
 logger = logging.getLogger(__name__)
-
 
 class DeviceInfo(object):
 
@@ -39,7 +35,6 @@ class DeviceInfo(object):
 
 	def __del__(self):
 		self._pa.terminate()
-
 
 class Capture(object):
 

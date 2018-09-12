@@ -1,0 +1,50 @@
+Language model created by QuickLM on Thu Sep  6 13:05:42 EDT 2018
+Copyright (c) 1996-2010 Carnegie Mellon University and Alexander I. Rudnicky
+
+The model is in standard ARPA format, designed by Doug Paul while he was at MITRE.
+
+The code that was used to produce this language model is available in Open Source.
+Please visit http://www.speech.cs.cmu.edu/tools/ for more information
+
+The (fixed) discount mass is 0.5. The backoffs are computed using the ratio method.
+This model based on a corpus of 4 sentences and 8 words
+
+\data\
+ngram 1=8
+ngram 2=9
+ngram 3=10
+
+\1-grams:
+-1.0792 </s> -0.3010
+-1.0792 <s> -0.2632
+-1.3802 KETTLE -0.2632
+-1.3802 LAMP -0.2632
+-1.3802 OFF -0.2632
+-1.3802 ON -0.2632
+-1.0792 THE -0.2632
+-1.0792 TURN -0.2632
+
+\2-grams:
+-0.3010 <s> TURN 0.0000
+-0.3010 KETTLE </s> -0.3010
+-0.3010 LAMP </s> -0.3010
+-0.3010 OFF THE 0.0000
+-0.3010 ON THE 0.0000
+-0.6021 THE KETTLE 0.0000
+-0.6021 THE LAMP 0.0000
+-0.6021 TURN OFF 0.0000
+-0.6021 TURN ON 0.0000
+
+\3-grams:
+-0.6021 <s> TURN OFF
+-0.6021 <s> TURN ON
+-0.6021 OFF THE KETTLE
+-0.6021 OFF THE LAMP
+-0.6021 ON THE KETTLE
+-0.6021 ON THE LAMP
+-0.3010 THE KETTLE </s>
+-0.3010 THE LAMP </s>
+-0.3010 TURN OFF THE
+-0.3010 TURN ON THE
+
+\end\

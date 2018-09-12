@@ -1,35 +1,78 @@
-# AlexaPi (the new & awesome version) [![Gitter chat](https://badges.gitter.im/alexa-pi/Lobby.png)](https://gitter.im/alexa-pi/Lobby)
+# AlexaPi and PocketSphinx
 
-This is a client for Amazon's Alexa service. It is intended and tested to run on a wide range of platforms, such as Raspberry Pi, Orange Pi, CHIP and ordinary Linux or Windows desktops.
+This is the client for Amazon's Alexa service, it also includes the solution described in the section 2 of the FAQ of the AlexaPi project:
 
-### Do you want to help out? Read the [Contribution Guide](CONTRIBUTING.md).
+	https://github.com/alexa-pi/AlexaPi/wiki/Q&A-(FAQ)
 
-### Check out the [Documentation Wiki](https://github.com/alexa-pi/AlexaPi/wiki) and [Change Log](CHANGELOG.md).
+### Options
 
-## Requirements
+root@localhost:/opt/AlexaPi# ./src/main.py -h
+  -h, --help          show this help message and exit
+  -s, --silent        automated test mode
+  -d, --debug         display debug messages
 
-You will need:
+root@localhost:/opt/AlexaPi# ./Pocket/main.py -h
+  -h, --help          show this help message and exit
+  -d, --debug         display debug messages
+  -g, --grammar       grammar mode (no default)
+  -p dir, --path=dir  path where to find the JSGF
 
-1. **A Linux or Windows box**
-    - a Raspberry Pi and an SD Card with a fresh install of Raspbian
-    - or an Orange Pi with Armbian
-    - or pretty much any up-to-date Linux/Windows system
-2. **Audio peripherals**
-    - external speaker with 3.5mm Jack
-    - USB Sound Dongle and microphone
-3. **Optional (only for Raspberry Pi)**
-    - a push button connected between GPIO 18 and GND (configurable)
-    - a dual colour LED (or 2 single LEDs) connected between GPIO 24 & 25 and GND (configurable)
+root@localhost:/opt/AlexaPi# uname -a
+  Linux 4.4.30-xillinux-2.0 #1 SMP PREEMPT Tue Dec 5 11:54:25 IST 2017 armv7l armv7l armv7l GNU/Linux
 
-## You wanna give it a try? Check out the [Installation Guide](https://github.com/alexa-pi/AlexaPi/wiki/Installation).
+### Platform
 
-## Issues / Bugs / Documentation / etc.
+It is intended to run on Xillinux 16.04 (see uname command). These are the paramaters to configure the Zedboard:
 
-If your AlexaPi isn't running on startup, crashes or your audio input / output isn't working, be sure to check out:
+cat /etc/opt/AlexaPi/config.yaml 
+...
+sound:
+  input_device: "pulse"
+  playback_handler: "vlc"
+  output: "pulse"
+  output_device: "default"
+  ...
 
-- our **[Documentation Wiki](https://github.com/alexa-pi/AlexaPi/wiki)** - the sections with _debugging_ in their name are your friends!
-- our **[Issue Tracker](https://github.com/alexa-pi/AlexaPi/issues)**. 
+triggers:
+  platform:
+    enabled: true
+    voice_confirm: true
+    event_type: "oneshot-vad"
+    # only for "continuous" event_types
+    long_press:
+      command: ""
+      duration: 10
+      audio_file: ""
 
-Also, you can
-- chat with us at **[gitter.im/alexa-pi/Lobby](https://gitter.im/alexa-pi/Lobby)**  
-- join our **[AlexaPi Users](https://plus.google.com/communities/105607055053826225738/)** user community on Google+  
+  pocketsphinx:
+    enabled: false
+    voice_confirm: true
+    phrase: "alexa"
+    threshold: 1e-10
+
+event_commands:
+  startup: ""
+  pre_interaction: ""
+  post_interaction: ""
+  shutdown: ""
+
+platform:
+  # Name of your platform, e.g. raspberrypi, orangepi, desktop
+  device: "zedboard"
+platforms:
+  ...
+  desktop:
+    min_seconds_to_record: 3
+  dummy:
+  zedboard:
+    min_seconds_to_record: 3
+    # GPIO Pin with button connected
+    button: 77
+    # GPIO Pin for the playback/activity light
+    plb_light: 64
+    # GPIO Pin for the recording light
+    rec_light: 63
+
+More info at
+
+	https://github.com/alexa-pi/AlexaPi/wiki/Configuration-file

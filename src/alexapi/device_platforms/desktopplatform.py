@@ -3,7 +3,7 @@ import threading
 import logging
 import sys
 
-from .baseplatform import BasePlatform
+from . baseplatform import BasePlatform
 
 logger = logging.getLogger(__name__)
 

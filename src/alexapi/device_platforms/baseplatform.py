@@ -6,8 +6,9 @@ class BasePlatform:
 
 	_trigger_callback = None
 
-	def __init__(self, config, platform_name):
+	def __init__(self, config, silent, platform_name):
 		self._config = config
+		self._silent = silent
 
 		self._pconfig = {}
 		if config['platforms']['common']:

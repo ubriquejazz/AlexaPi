@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 class PlaylistError(Exception):
     pass
 
-
 class Cache(object):
     # TODO: merge this to util library (copied from mopidy-spotify)
 

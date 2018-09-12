@@ -1,31 +1,30 @@
 #! /usr/bin/env python
 
 import importlib
-import os
-import logging
+import logging, coloredlogs
 import tempfile
 import signal
 import shutil
 import time
-import sys
+import sys, os
 import threading
-import json
+import json, yaml
 import optparse
 import email
 import subprocess
 import hashlib
 from future.builtins import bytes
-
-import yaml
 import requests
-import coloredlogs
-
 import alexapi.config
-import alexapi.tunein as tunein
-import alexapi.capture
-import alexapi.triggers as triggers
+
+from alexapi.token import Token
+from alexapi.tunein import TuneIn
+from alexapi.capture import Capture
+from alexapi.platformtrigger import PlatformTrigger
 from alexapi.exceptions import ConfigurationException
 from alexapi.constants import RequestType, PlayerActivity
+from alexapi.constants import TYPES, EVENT_TYPES, MAX_VOLUME, MIN_VOLUME
+from alexapi.constants import types_continuous, types_vad
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
 coloredlogs.DEFAULT_FIELD_STYLES = {
@@ -49,24 +48,18 @@ parser.add_option('-s', '--silent',
 		dest="silent",
 		action="store_true",
 		default=False,
-		help="start without saying hello")
+		help="automated test mode")
 parser.add_option('-d', '--debug',
 		dest="debug",
 		action="store_true",
 		default=False,
 		help="display debug messages")
-parser.add_option('--daemon',
-		dest="daemon",
-		action="store_true",
-		default=False,
-		help="Used by initd/systemd start script to reconfigure logging")
 
 cmdopts, cmdargs = parser.parse_args()
 silent = cmdopts.silent
 debug = cmdopts.debug
 
 config_exists = alexapi.config.filename is not None
-
 if config_exists:
 	with open(alexapi.config.filename, 'r') as stream:
 		config = yaml.load(stream)
@@ -79,11 +72,7 @@ else:
 	else:
 		log_level = logging.getLevelName('INFO')
 
-if cmdopts.daemon:
-	coloredlogs.DEFAULT_LOG_FORMAT = '%(levelname)s: %(message)s'
-else:
-	coloredlogs.DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s: %(message)s'
-
+coloredlogs.DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s: %(message)s'
 coloredlogs.install(level=log_level)
 alexa_logger = logging.getLogger('alexapi')
 alexa_logger.setLevel(log_level)
@@ -105,10 +94,27 @@ event_commands = {
 if 'event_commands' in config:
 	event_commands.update(config['event_commands'])
 
-im = importlib.import_module('alexapi.device_platforms.' + config['platform']['device'] + 'platform', package=None)
-cl = getattr(im, config['platform']['device'].capitalize() + 'Platform')
-platform = cl(config)
+path = os.path.realpath(__file__).rstrip(os.path.basename(__file__))
+resources_path = os.path.join(path, 'resources', '')
+tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
 
+#######################################################################
+# Object declaration:
+#	platform = ZedboardPlatform(config)
+#######################################################################
+
+im = importlib.import_module('alexapi.device_platforms.' + \
+								config['platform']['device'] + \
+								'platform', package=None)
+cl = getattr(im, config['platform']['device'].capitalize() + 'Platform')
+platform = cl(config, silent)
+
+#######################################################################
+# Object declarations:
+#	pHandler = VlcHandler(config, playback_callback)
+#   player = Player(config, platform, pHandler)
+#	
+#######################################################################
 
 class Player(object):
 
@@ -125,7 +131,7 @@ class Player(object):
 		self.config = config
 		self.platform = platform
 		self.pHandler = pHandler # pylint: disable=invalid-name
-		self.tunein_parser = tunein.TuneIn(5000)
+		self.tunein_parser = TuneIn(5000)
 
 	def play_playlist(self, payload):
 		self.navigation_token = payload['navigationToken']
@@ -181,96 +187,27 @@ class Player(object):
 
 	def tunein_playlist(self, url):
 		logger.debug("TUNE IN URL = %s", url)
-
 		req = requests.get(url)
 		lines = req.content.decode().split('\n')
-
 		nurl = self.tunein_parser.parse_stream_url(lines[0])
 		if nurl:
 			return nurl[0]
-
 		return ""
 
-
-# Playback handler
 def playback_callback(requestType, playerActivity, streamId):
-
 	return player.playback_callback(requestType, playerActivity, streamId)
 
-im = importlib.import_module('alexapi.playback_handlers.' + config['sound']['playback_handler'] + "handler", package=None)
+im = importlib.import_module('alexapi.playback_handlers.' + \
+								config['sound']['playback_handler'] + \
+								"handler", package=None)
 cl = getattr(im, config['sound']['playback_handler'].capitalize() + 'Handler')
 pHandler = cl(config, playback_callback)
 player = Player(config, platform, pHandler)
 
+#######################################################################
+# Section from https://github.com/respeaker/Alexa/blob/master/alexa.py
+#######################################################################
 
-path = os.path.realpath(__file__).rstrip(os.path.basename(__file__))
-resources_path = os.path.join(path, 'resources', '')
-tmp_path = os.path.join(tempfile.mkdtemp(prefix='AlexaPi-runtime-'), '')
-
-MAX_VOLUME = 100
-MIN_VOLUME = 30
-
-
-def internet_on():
-	try:
-		requests.get('https://api.amazon.com/auth/o2/token')
-		logger.info("Connection OK")
-		return True
-	except requests.exceptions.RequestException:
-		logger.error("Connection Failed")
-		return False
-
-
-class Token(object):
-
-	_token = ''
-	_timestamp = None
-	_validity = 3570
-
-	def __init__(self, aconfig):
-
-		self._aconfig = aconfig
-
-		if not self._aconfig.get('refresh_token'):
-			logger.critical("AVS refresh_token not found in the configuration file. "
-					"Run the setup again to fix your installation (see project wiki for installation instructions).")
-			raise ConfigurationException
-
-		self.renew()
-
-	def __str__(self):
-
-		if (not self._timestamp) or (time.time() - self._timestamp > self._validity):
-			logger.debug("AVS token: Expired")
-			self.renew()
-
-		return self._token
-
-	def renew(self):
-
-		logger.info("AVS token: Requesting a new one")
-
-		payload = {
-			"client_id": self._aconfig['Client_ID'],
-			"client_secret": self._aconfig['Client_Secret'],
-			"refresh_token": self._aconfig['refresh_token'],
-			"grant_type": "refresh_token"
-		}
-
-		url = "https://api.amazon.com/auth/o2/token"
-		try:
-			response = requests.post(url, data=payload)
-			resp = json.loads(response.text)
-
-			self._token = resp['access_token']
-			self._timestamp = time.time()
-
-			logger.info("AVS token: Obtained successfully")
-		except requests.exceptions.RequestException as exp:
-			logger.critical("AVS token: Failed to obtain a token: " + str(exp))
-
-
-# from https://github.com/respeaker/Alexa/blob/master/alexa.py
 def alexa_speech_recognizer_generate_data(audio, boundary):
 	"""
 	Generate a iterator for chunked transfer-encoding request of Alexa Voice Service
@@ -364,6 +301,7 @@ def alexa_getnextitem(navigationToken):
 	response = requests.post(url, headers=headers, data=json.dumps(data))
 	process_response(response)
 
+
 def alexa_playback_progress_report_request(requestType, playerActivity, stream_id):
 	# https://developer.amazon.com/public/solutions/alexa/alexa-voice-service/rest/audioplayer-events-requests
 	# streamId                  Specifies the identifier for the current stream.
@@ -419,7 +357,9 @@ def process_response(response):
 
 	if response.status_code == 200:
 		try:
-			data = bytes("Content-Type: ", 'utf-8') + bytes(response.headers['content-type'], 'utf-8') + bytes('\r\n\r\n', 'utf-8') + response.content
+			data = bytes("Content-Type: ", 'utf-8') + \
+					bytes(response.headers['content-type'], 'utf-8') + \
+					bytes('\r\n\r\n', 'utf-8') + response.content
 			msg = email.message_from_bytes(data) # pylint: disable=no-member
 		except AttributeError:
 			data = "Content-Type: " + response.headers['content-type'] + '\r\n\r\n' + response.content
@@ -430,7 +370,8 @@ def process_response(response):
 				j = json.loads(payload.get_payload())
 				logger.debug("JSON String Returned: %s", json.dumps(j, indent=2))
 			elif payload.get_content_type() == "audio/mpeg":
-				filename = tmp_path + hashlib.md5(payload.get('Content-ID').strip("<>").encode()).hexdigest() + ".mp3"
+				filename = tmp_path + \
+					hashlib.md5(payload.get('Content-ID').strip("<>").encode()).hexdigest() + ".mp3"
 				with open(filename, 'wb') as f:
 					f.write(payload.get_payload(decode=True))
 			else:
@@ -444,16 +385,15 @@ def process_response(response):
 			for directive in j['messageBody']['directives']:
 				if directive['namespace'] == 'SpeechSynthesizer':
 					if directive['name'] == 'speak':
-						player.play_speech("file://" + tmp_path + hashlib.md5(directive['payload']['audioContent'].replace("cid:", "", 1).encode()).hexdigest() + ".mp3")
+						player.play_speech("file://" + tmp_path + \
+							hashlib.md5(directive['payload']['audioContent'].replace("cid:", "", 1).encode()).hexdigest() + ".mp3")
 
 				elif directive['namespace'] == 'SpeechRecognizer':
 					if directive['name'] == 'listen':
 						logger.debug("Further Input Expected, timeout in: %sms", directive['payload']['timeoutIntervalInMillis'])
-
 						player.play_speech(resources_path + 'beep.wav')
 						timeout = directive['payload']['timeoutIntervalInMillis'] / 116
 						audio_stream = capture.silence_listener(timeout)
-
 						# now process the response
 						alexa_speech_recognizer(audio_stream)
 
@@ -475,15 +415,12 @@ def process_response(response):
 							volume = MAX_VOLUME
 						elif (volume < MIN_VOLUME):
 							volume = MIN_VOLUME
-
 						player.set_volume(volume)
-
 						logger.debug("new volume = %s", volume)
 
 		# Additional Audio Iten
 		elif 'audioItem' in j['messageBody']:
 			player.play_playlist(j['messageBody'])
-
 		return
 
 	elif response.status_code == 204:
@@ -491,21 +428,25 @@ def process_response(response):
 	else:
 		logger.info("(process_response Error) Status Code: %s", response.status_code)
 		response.connection.close()
-
 		platform.indicate_failure()
+
+##########################################################################
+# Object declaration:
+#	 trigger = PlatformTrigger(config, trigger_callback)
+#
+# Functions using the object:
+# 	 trigger_callback(trigger): starts the thread when a button is pressed
+#    trigger_process(trigger): callback function
+##########################################################################
 
 trigger_thread = None
 def trigger_callback(trigger):
 	global trigger_thread
-
-	logger.info("Triggered: %s", trigger.name)
-
-	triggers.disable()
-
+	logger.info("Triggered: %s", 'platform') # trigger.name)
+	trigger.disable()
 	trigger_thread = threading.Thread(target=trigger_process, args=(trigger,))
 	trigger_thread.setDaemon(True)
 	trigger_thread.start()
-
 
 def trigger_process(trigger):
 
@@ -526,7 +467,7 @@ def trigger_process(trigger):
 		subprocess.Popen(event_commands['pre_interaction'], shell=True, stdout=subprocess.PIPE)
 
 	force_record = None
-	if trigger.event_type in triggers.types_continuous:
+	if trigger.event_type in types_continuous:
 		force_record = (trigger.continuous_callback, trigger.event_type in triggers.types_vad)
 
 	if trigger.voice_confirm:
@@ -534,25 +475,42 @@ def trigger_process(trigger):
 
 	audio_stream = capture.silence_listener(force_record=force_record)
 	alexa_speech_recognizer(audio_stream)
-
-	triggers.enable()
+	trigger.enable()
 
 	if event_commands['post_interaction']:
 		subprocess.Popen(event_commands['post_interaction'], shell=True, stdout=subprocess.PIPE)
 
+#triggers.init(config, trigger_callback, capture)
+trigger = PlatformTrigger(config, trigger_callback)
+
+##########################################################################
 
 def cleanup(signal, frame):   # pylint: disable=redefined-outer-name,unused-argument
-	triggers.disable()
+	trigger.disable()
 	capture.cleanup()
 	pHandler.cleanup()
 	platform.cleanup()
 	shutil.rmtree(tmp_path)
-
 	if event_commands['shutdown']:
 		subprocess.Popen(event_commands['shutdown'], shell=True, stdout=subprocess.PIPE)
-
 	sys.exit(0)
 
+def setup_objects():
+	capture.setup(platform.indicate_recording)
+	trigger.setup()
+	pHandler.setup()
+	platform.setup()
+
+def internet_on():
+	try:
+		requests.get('https://api.amazon.com/auth/o2/token')
+		logger.info("Connection OK")
+		return True
+	except requests.exceptions.RequestException:
+		logger.error("Connection Failed")
+		return False
+
+##########################################################################
 
 if __name__ == "__main__":
 
@@ -560,19 +518,12 @@ if __name__ == "__main__":
 		subprocess.Popen(event_commands['startup'], shell=True, stdout=subprocess.PIPE)
 
 	try:
-		capture = alexapi.capture.Capture(config, tmp_path)
+		capture = Capture(config, tmp_path)
 	except ConfigurationException as exp:
 		logger.critical(exp)
 		sys.exit(1)
 
-	capture.setup(platform.indicate_recording)
-
-	triggers.init(config, trigger_callback, capture)
-	triggers.setup()
-
-	pHandler.setup()
-	platform.setup()
-
+	setup_objects() 
 	for sig in (signal.SIGABRT, signal.SIGILL, signal.SIGINT, signal.SIGSEGV, signal.SIGTERM):
 		signal.signal(sig, cleanup)
 
@@ -582,22 +533,17 @@ if __name__ == "__main__":
 
 	try:
 		token = Token(config['alexa'])
-
 		if not str(token):
 			raise RuntimeError
-
 	except (ConfigurationException, RuntimeError):
 		platform.indicate_failure()
 		sys.exit(1)
-
-	platform_trigger_callback = triggers.triggers['platform'].platform_callback if 'platform' in triggers.triggers else None
-	platform.after_setup(platform_trigger_callback)
-	triggers.enable()
-
-	if not silent:
-		player.play_speech(resources_path + "hello.mp3")
-
+	
+	#platform.after_setup(platform_trigger_callback)
+	platform.after_setup(trigger.platform_callback)
+	trigger.enable()
+		
+	player.play_speech(resources_path + "hello.mp3")
 	platform.indicate_success()
-
 	while True:
 		time.sleep(1)
