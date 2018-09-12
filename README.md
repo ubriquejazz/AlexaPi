@@ -5,7 +5,7 @@ This is the client for Amazon's Alexa service, it also includes the solution des
 	https://github.com/alexa-pi/AlexaPi/wiki/Q&A-(FAQ)
 
 ### Options
-
+```
 root@localhost:/opt/AlexaPi# ./src/main.py -h
   -h, --help          show this help message and exit
   -s, --silent        automated test mode
@@ -19,11 +19,13 @@ root@localhost:/opt/AlexaPi# ./Pocket/main.py -h
 
 root@localhost:/opt/AlexaPi# uname -a
   Linux 4.4.30-xillinux-2.0 #1 SMP PREEMPT Tue Dec 5 11:54:25 IST 2017 armv7l armv7l armv7l GNU/Linux
+```
 
 ### Platform
 
 It is intended to run on Xillinux 16.04 (see uname command). These are the paramaters to configure the Zedboard:
 
+```
 cat /etc/opt/AlexaPi/config.yaml 
 ...
 sound:
@@ -57,7 +59,6 @@ event_commands:
   shutdown: ""
 
 platform:
-  # Name of your platform, e.g. raspberrypi, orangepi, desktop
   device: "zedboard"
 platforms:
   ...
@@ -72,6 +73,7 @@ platforms:
     plb_light: 64
     # GPIO Pin for the recording light
     rec_light: 63
+```
 
 More info at
 
