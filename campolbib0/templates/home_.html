@@ -1,0 +1,65 @@
+
+{% load static from staticfiles %}
+{% load form_helpers %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Trade Edit</title>
+    <link rel="stylesheet" href="{% static 'bootstrap-3.3.6-dist/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'font-awesome-4.6.3/css/font-awesome.min.css' %}">
+    <link rel="stylesheet" href="{% static 'jquery-ui-1.11.4/jquery-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <script src="{% static 'js/jquery-2.1.4.min.js' %}"></script>
+
+</head>
+
+
+<body>
+
+<div class="row">
+<div class="col-md-6 col-md-offset-3">
+<h1>Trade List</h1>
+
+
+<div class="pull-right">
+     <a href="{% url 'ns:name' %}" class="btn btn-success">
+        <span class="fa fa-pencil" aria-hidden="true"></span>
+        Add Trade
+    </a>
+</div>
+
+{% if object_list %}
+    <table class="table table-hover panel-body">
+
+        <tr>
+            <th>Sell CCY</th>
+            <th>Sell Amount</th>
+            <th>Buy CCY</th>
+            <th>Buy Amount</th>
+            <th>Rate</th>
+            <th>Date Booked</th>
+        </tr>
+
+        {% for object in object_list %}
+        <tr>
+            <td>{{ object.sell_currency }}</td>
+            <td>{{ object.sell_amount }}</td>
+            <td>{{ object.buy_currency }}</td>
+            <td>{{ object.buy_amount }}</td>
+            <td>{{ object.rate }}</td>
+            <td>{{ object.date_booked }}</td>
+        </tr>
+        {% endfor %}
+
+    </table>
+
+{% else %}
+    <p>There are no Trades in the database.</p>
+{% endif %}
+
+</div>
+</div>
+</body>
+
+</html>
