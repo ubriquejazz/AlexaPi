@@ -25,7 +25,7 @@ SECRET_KEY = 'i4a%d^2l#za&1qjd4d==^*ee=i@zw#gje=k@m&*8eeeg8hs4hk'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.101',]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.101', '192.168.1.137', ]
 
 
 # Application definition
@@ -77,7 +77,7 @@ WSGI_APPLICATION = 'campolbib0.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'campolbibdb0.sqlite3'),
+        'NAME': os.path.join(BASE_DIR, 'campolbib0_db.sqlite3'),
     }
 }
 
