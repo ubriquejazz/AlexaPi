@@ -19,61 +19,49 @@ COLOUR_CHOICES = [
     ('WHITE', 'White'),
 ]
 
+CATEGORY_CHOICES = [ 
+    ('PW', 'Novel'), ('KP', 'Polish classics'), ('KZ', 'Foreign classics'), ('RZ', 'Different'), 
+    ('HS', 'History'), ('BG', 'Biography'), ('DZ', 'children/youth'), ('PZ', 'Poetry'),
+    ('DVD', 'DVD'), ('AL', 'Albums'), ('RL', 'Religion'),
+]
+
 class Book(models.Model):
     """
     An Book class - to describe book in the system.
     """
     title = models.CharField(blank=False, max_length=DEFAULT_MAX_LENGTH)  # blank default false
-    author = models.CharField(max_length=DEFAULT_MAX_LENGTH)
+    author_name = models.CharField(max_length=DEFAULT_MAX_LENGTH)
+    author_surname = models.CharField(max_length=DEFAULT_MAX_LENGTH)
     publisher_name = models.CharField(max_length=DEFAULT_MAX_LENGTH)
     publisher_city = models.CharField(blank=True, max_length=DEFAULT_MAX_LENGTH)
     year_published = models.PositiveSmallIntegerField(blank=True, null=True)
     ISBN = models.CharField(blank=True, max_length=DEFAULT_MAX_LENGTH)
-    category = models.ManyToManyField('Categories')  # categories + sub-categories
+    category = models.CharField(choices=CATEGORY_CHOICES, max_length=DEFAULT_MAX_LENGTH)
     status = models.CharField(choices=BOOK_STATUS_CHOICES, max_length=DEFAULT_MAX_LENGTH)
     location = models.CharField(blank=True, max_length=DEFAULT_MAX_LENGTH)
     # colour = models.CharField(choices=COLOUR_CHOICES, blank=True)  # property consequence of category
-    quantity = models.PositiveSmallIntegerField(null=True)
+    # quantity = models.PositiveSmallIntegerField(null=True)
     description = models.TextField(blank=True)
     # front_page = models.ImageField()
     # end_page = models.ImageField()
     notes = models.TextField(blank=True)
     arrival_date = models.DateField(auto_now_add=True)
-    dismiss_date = models.DateField()
-    language = models.CharField(max_length=DEFAULT_MAX_LENGTH)
+    dismiss_date = models.DateField(blank=True, null=True)
+    language = models.CharField(max_length=DEFAULT_MAX_LENGTH, default='Polish')
     # related_books = models.ManyToManyField('self')
 
-    def __unicode__(self):
-        return 'Book: ' + self.title
+    def __str__(self):
+        return '%(surname)s, %(name)s: %(title)s (%(year)s)' % {
+            'surname': self.author_surname,
+            'name': self.author_name,
+            'title': self.title,
+            'year': self.year_published,
+        }
 
     class Meta:
         ordering = ['title']
         verbose_name = "Book"
         verbose_name_plural = "Books"
-
-
-CATEGORY_CHOICES = [ 
-    ('PW', u'Novel'), ('KP', 'Polish classics'), ('KZ', 'Foreign classics'), ('RZ', 'Different'), 
-    ('HS', 'History'), ('BG', 'Biography'), ('MD', 'children/youth'), ('PZ', 'Poetry'),
-    ('DVD', 'DVD'), ('AL', 'Albums'), ('RL', 'Religion'),
-]
-
-class Categories(models.Model):
-    """
-    """
-    name = models.CharField('Category', choices=CATEGORY_CHOICES, max_length=DEFAULT_MAX_LENGTH, unique=True)
-
-    class Meta:
-        verbose_name_plural = "Categories"
-
-    def __unicode__(self):
-        return self.name
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return self.name        
 
 
 LIBRARY_USER_STATUS_CHOICES = [
