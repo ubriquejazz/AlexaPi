@@ -31,7 +31,7 @@ class Book(models.Model):
     """
     title = models.CharField(blank=False, max_length=DEFAULT_MAX_LENGTH)  # blank default false
     author_name = models.CharField(max_length=DEFAULT_MAX_LENGTH)
-    author_surname = models.CharField(max_length=DEFAULT_MAX_LENGTH)
+    author_surname = models.CharField(blank=True, max_length=DEFAULT_MAX_LENGTH)
     publisher_name = models.CharField(max_length=DEFAULT_MAX_LENGTH)
     publisher_city = models.CharField(blank=True, max_length=DEFAULT_MAX_LENGTH)
     year_published = models.PositiveSmallIntegerField(blank=True, null=True)
