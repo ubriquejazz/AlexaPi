@@ -49,6 +49,7 @@ coverage.xml
 Alexa/src/config.yaml
 
 # Django stuff:
+Django/wisdompets/static/admin/
 Django/wisdompets/wisdompets/configuration.py
 
 
